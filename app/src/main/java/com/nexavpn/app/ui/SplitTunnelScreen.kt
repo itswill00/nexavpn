@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SplitTunnelScreen(onBack: () -> Unit) {
+fun SplitTunnelScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repo = remember { SplitTunnelRepository }
@@ -46,18 +46,22 @@ fun SplitTunnelScreen(onBack: () -> Unit) {
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Split Tunneling", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Split Tunneling", style = MaterialTheme.typography.headlineMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
+        Column(Modifier.padding(padding).fillMaxSize().then(modifier)) {
             Text(
                 "Excluded apps will use your regular network connection instead of the VPN.",
                 fontSize = 13.sp,

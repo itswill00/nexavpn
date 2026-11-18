@@ -22,24 +22,23 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onOpenSplitTunnel: () -> Unit) {
+fun SettingsScreen(modifier: Modifier = Modifier, onOpenSplitTunnel: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settings by SettingsRepository.settings(context).collectAsState(initial = AppSettings())
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text("Settings", style = MaterialTheme.typography.headlineMedium) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
     ) { padding ->
-        LazyColumn(Modifier.padding(padding).fillMaxSize()) {
+        LazyColumn(Modifier.padding(padding).fillMaxSize().then(modifier)) {
             item {
                 SettingsToggle(
                     title = "Kill switch",
