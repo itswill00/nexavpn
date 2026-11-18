@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Split tunneling: per-app exclusion list with searchable picker
+- Kill switch: auto-reconnect on unexpected tunnel drop; deep-link to
+  system always-on VPN for hard enforcement
+- Settings screen: kill switch, auto-connect, split tunneling entry
+- Latency probing: concurrent TCP probe per server, color-coded badge,
+  auto-select fastest reachable server
+
+### Fixed
+
+- WireGuard library coordinates: `com.wireguard.android:tunnel:1.0.20250531`
+  (Maven Central date-versioned; the previously referenced 1.1.1 never existed)
+- DataStore `edit` receiver usage, `Key.fromBase64` API usage,
+  `LatencyProber` coroutine `associate` pattern, duplicate imports,
+  VPN settings intent action
+
+### Build
+
+- First successful `assembleDebug` APK (v2-signed, verified via REA)
+- Local toolchain: JDK 17, Android SDK 35, Gradle 8.9 wrapper
+
+
 ### Changed
 
 - **Client**: replaced custom `TunnelService` with the library-managed
