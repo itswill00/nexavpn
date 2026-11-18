@@ -23,13 +23,21 @@ class ApiClient(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** @return servers, or null when the backend is unreachable (offline fallback). */
+    /** @return servers, or null when unreachable/parse-failed (offline fallback). */
     fun fetchServers(): ServerListResponse? = runCatching {
         val req = builder("$baseUrl/servers").build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return null
-            json.decodeFromString<ServerListResponse>(resp.body?.string() ?: return null)
+            val body = resp.body?.string() ?: return null
+            try {
+                json.decodeFromString<ServerListResponse>(body)
+            } catch (e: Exception) {
+                android.util.Log.e("ApiClient", "Failed to parse /servers response", e)
+                null
+            }
         }
+    }.onFailure {
+        android.util.Log.e("ApiClient", "fetchServers failed", it)
     }.getOrNull()
 
     /**

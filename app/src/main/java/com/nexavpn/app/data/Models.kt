@@ -1,16 +1,17 @@
 package com.nexavpn.app.data
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class VpnServer(
     val id: String,
     val country: String,
-    val countryCode: String,
+    @SerialName("country_code") val countryCode: String,
     val city: String,
     val hostname: String,
-    val publicKey: String,
-    val endpointPort: Int = 51820,
+    @SerialName("public_key") val publicKey: String,
+    @SerialName("endpoint_port") val endpointPort: Int = 51820,
     val premium: Boolean = false,
     val load: Float = 0f,
 )
@@ -18,7 +19,7 @@ data class VpnServer(
 @Serializable
 data class ServerListResponse(
     val servers: List<VpnServer>,
-    val updatedAt: Long = 0,
+    @SerialName("updatedAt") val updatedAt: Long = 0,
 )
 
 /**
@@ -28,9 +29,9 @@ data class ServerListResponse(
  */
 @Serializable
 data class PeerLease(
-    val address: String,          // e.g. "10.66.66.7/32"
-    val serverPublicKey: String,  // server's wg public key
-    val endpoint: String,         // "host:port"
+    val address: String,                              // e.g. "10.66.66.7/32"
+    @SerialName("server_public_key") val serverPublicKey: String,
+    val endpoint: String,                             // "host:port"
     val dns: List<String> = listOf("1.1.1.1", "1.0.0.1"),
-    val expiresAt: Long = 0,
+    @SerialName("expires_at") val expiresAt: Long = 0,
 )
