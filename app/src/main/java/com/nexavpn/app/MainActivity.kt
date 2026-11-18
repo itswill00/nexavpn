@@ -37,6 +37,7 @@ import com.nexavpn.app.ui.theme.NexaTeal
 import com.nexavpn.app.ui.theme.NexaTheme
 import com.nexavpn.app.vpn.Consent
 import com.nexavpn.app.vpn.KillSwitch
+import com.nexavpn.app.vpn.SessionMonitor
 import com.nexavpn.app.vpn.TunnelState
 import com.nexavpn.app.vpn.VpnManager
 import kotlinx.coroutines.Dispatchers
@@ -172,6 +173,8 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 onClick = {
                     val server = selected ?: return@ConnectButton
                     error = null
+                    val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE)
+                        as? android.os.Vibrator
                     when (vpnState) {
                         TunnelState.DISCONNECTED -> activity?.requestVpnConsent { granted ->
                             if (granted) {
@@ -185,6 +188,18 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                         }
                         else -> scope.launch {
                             VpnManager.disconnect(context).onFailure { error = it.message }
+                        }
+                    }
+                    runCatching {
+                        if (android.os.Build.VERSION.SDK_INT >= 31) {
+                            vibrator?.vibrate(
+                                android.os.VibrationEffect.createPredefined(
+                                    android.os.VibrationEffect.EFFECT_CLICK,
+                                ),
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            vibrator?.vibrate(20)
                         }
                     }
                 },
@@ -212,6 +227,17 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        // Live session stats while connected
+        if (vpnState == TunnelState.CONNECTED) {
+            val stats by SessionMonitor.stats.collectAsState()
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                StatBlock("UPTIME", formatDuration(stats.secondsConnected))
+                StatBlock("DOWN", formatBytes(stats.rxBytes))
+                StatBlock("UP", formatBytes(stats.txBytes))
+            }
+        }
 
         error?.let { msg ->
             Spacer(Modifier.height(16.dp))
@@ -362,6 +388,44 @@ fun ServersScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun StatBlock(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+fun formatDuration(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+}
+
+fun formatBytes(bytes: Long): String = when {
+    bytes >= 1_000_000_000 -> "%.1f GB".format(bytes / 1_000_000_000.0)
+    bytes >= 1_000_000 -> "%.1f MB".format(bytes / 1_000_000.0)
+    bytes >= 1_000 -> "%.0f KB".format(bytes / 1_000.0)
+    else -> "$bytes B"
+}
+
+// Country flag from ISO code (regional-indicator emoji; renders on Android).
+fun flagOf(countryCode: String): String {
+    val base = 0x1F1E6 - 'A'.code
+    return countryCode.uppercase().take(2)
+        .map { c -> String(Character.toChars(base + c.code)) }
+        .joinToString("")
+}
+
+@Composable
 private fun ServerCard(
     server: VpnServer,
     selected: Boolean,
@@ -382,6 +446,8 @@ private fun ServerCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
+            Text(flagOf(server.countryCode), fontSize = 26.sp)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(server.country, style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface)

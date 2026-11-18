@@ -79,6 +79,7 @@ object VpnManager {
             backend.setState(handle, Tunnel.State.UP, config)
             tunnel = handle
             _state.value = TunnelState.CONNECTED
+            SessionMonitor.onTunnelUp()
             return@withContext Result.success(Unit)
         } catch (e: Exception) {
             _state.value = TunnelState.DISCONNECTED
@@ -95,6 +96,7 @@ object VpnManager {
             backend.setState(handle, Tunnel.State.DOWN, null)
             tunnel = null
             _state.value = TunnelState.DISCONNECTED
+            SessionMonitor.reset()
             Result.success(Unit)
         } catch (e: Exception) {
             lastError = e.message
@@ -134,6 +136,9 @@ object VpnManager {
             }
         }
     }
+
+    /** Exposes the live tunnel to SessionMonitor for statistics sampling. */
+    fun activeHandle(): Tunnel? = tunnel
 
     /** Holds a breach state until user reconnects manually. */
     fun acknowledgeBreach() {
