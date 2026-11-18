@@ -1,0 +1,36 @@
+# Dependencies
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.ruff_cache/
+
+# Android / Gradle
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets & environment
+.env
+.env.*
+*.key
+!pubkey.examples/*.pub
+secrets/
+
+# Logs
+*.log
