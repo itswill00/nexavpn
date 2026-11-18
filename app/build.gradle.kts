@@ -12,13 +12,27 @@ android {
         applicationId = "com.nexavpn.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.1.2"
+        versionCode = 9
+        versionName = "1.2.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/nexavpn-release.jks")
+            storePassword = System.getenv("NEXA_STORE_PASS") ?: "nexavpn2026"
+            keyAlias = "nexavpn"
+            keyPassword = System.getenv("NEXA_KEY_PASS") ?: "nexavpn2026"
+        }
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -62,5 +76,4 @@ dependencies {
     implementation("com.wireguard.android:tunnel:1.0.20250531")
 
     // Crypto for peer key generation
-    implementation("org.minidns:minidns-hla:1.0.4")
 }

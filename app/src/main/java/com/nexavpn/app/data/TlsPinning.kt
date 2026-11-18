@@ -48,9 +48,15 @@ object TlsPinning {
         val tm = pinnedTrustManager()
         val sslContext = SSLContext.getInstance("TLS")
         sslContext.init(null, arrayOf(tm), null)
+        val backendHost = java.net.URI(BASE_URL_IF_SET).host
         return base.newBuilder()
             .sslSocketFactory(sslContext.socketFactory, tm)
-            .hostnameVerifier { _, _ -> true } // identity enforced by pinning, not hostname
+            // Identity is enforced by pinning; only allow the configured backend host,
+            // never any host (avoids the verifier-bypass pattern security scanners flag).
+            .hostnameVerifier { host, _ -> host == backendHost }
             .build()
     }
+
+    /** Mirrors ApiClient.DEFAULT_BASE_URL; kept in sync manually. */
+    private const val BASE_URL_IF_SET = "https://3.106.186.238"
 }
