@@ -14,12 +14,12 @@ import java.time.Duration
  */
 class ApiClient(
     private val baseUrl: String = DEFAULT_BASE_URL,
-    private val deviceToken: String? = null,
+    private val deviceToken: String? = DEFAULT_DEVICE_TOKEN,
 ) {
 
-    private val client = OkHttpClient.Builder()
-        .callTimeout(Duration.ofSeconds(15))
-        .build()
+    private val client: OkHttpClient = TlsPinning.client(
+        OkHttpClient.Builder().callTimeout(Duration.ofSeconds(15)).build(),
+    )
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -84,8 +84,11 @@ class ApiClient(
     }
 
     companion object {
-        // Point at your deployed backend before building a release.
-        const val DEFAULT_BASE_URL = "https://api.nexavpn.example.com"
+        // Deployed backend (self-signed cert, pinned in TlsPinning).
+        const val DEFAULT_BASE_URL = "https://3.106.186.238"
+        // Bearer token for provisioning endpoints (rotate before any public release).
+        const val DEFAULT_DEVICE_TOKEN =
+            "3971277b85e06b27dc96c5b6b279f5b8a7a47175f4fd007b231cf6b6c56ee885"
     }
 }
 
