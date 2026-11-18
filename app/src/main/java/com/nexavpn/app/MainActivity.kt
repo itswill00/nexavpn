@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexavpn.app.data.ApiClient
 import com.nexavpn.app.data.AppSettings
+import com.nexavpn.app.data.LatencyProber
 import com.nexavpn.app.data.SettingsRepository
 import com.nexavpn.app.data.VpnServer
 import com.nexavpn.app.data.SettingsRepository
@@ -82,6 +83,7 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var showSplitTunnel by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var latencies by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
     val api = remember { ApiClient() }
 
     suspend fun loadServers() {
@@ -89,6 +91,11 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
         servers = api.fetchServers()?.servers ?: defaultServers()
         if (selected == null) selected = servers.firstOrNull()
         loading = false
+        latencies = LatencyProber.probeAll(servers)
+        // Auto-select fastest reachable server if user hasn't picked one
+        if (selected == null || selected !in servers) {
+            selected = servers.minByOrNull { latencies[it.id] ?: Int.MAX_VALUE }
+        }
     }
 
     LaunchedEffect(Unit) { loadServers() }
@@ -207,6 +214,7 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
                             server = s,
                             selected = s.id == selected?.id,
                             enabled = vpnState == TunnelState.DISCONNECTED,
+                            latencyMs = latencies[s.id],
                             onClick = { selected = s },
                         )
                     }
@@ -271,7 +279,7 @@ fun ConnectionCard(state: TunnelState, server: VpnServer?, onToggle: () -> Unit)
 }
 
 @Composable
-fun ServerRow(server: VpnServer, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+fun ServerRow(server: VpnServer, selected: Boolean, enabled: Boolean, latencyMs: Int?, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         enabled = enabled,
@@ -291,6 +299,19 @@ fun ServerRow(server: VpnServer, selected: Boolean, enabled: Boolean, onClick: (
                     server.city,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                )
+            }
+            latencyMs?.let { ms ->
+                val (color, label) = when {
+                    ms < 100 -> MaterialTheme.colorScheme.tertiary to "$ms ms"
+                    ms < 250 -> MaterialTheme.colorScheme.secondary to "$ms ms"
+                    else -> MaterialTheme.colorScheme.error to "$ms ms"
+                }
+                Text(
+                    label,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = color,
                 )
             }
             if (server.premium) {
