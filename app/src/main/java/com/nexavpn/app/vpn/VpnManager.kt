@@ -11,9 +11,11 @@ import com.wireguard.config.Config
 import com.wireguard.config.InetNetwork
 import com.wireguard.config.Interface
 import com.wireguard.config.Peer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
 enum class TunnelState { DISCONNECTED, CONNECTING, CONNECTED }
@@ -58,8 +60,8 @@ object VpnManager {
         context: Context,
         server: VpnServer,
         api: ApiClient,
-    ): Result<Unit> {
-        if (_state.value != TunnelState.DISCONNECTED) return Result.success(Unit)
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        if (_state.value != TunnelState.DISCONNECTED) return@withContext Result.success(Unit)
         _state.value = TunnelState.CONNECTING
         lastError = null
         lastContext = context
@@ -77,18 +79,18 @@ object VpnManager {
             backend.setState(handle, Tunnel.State.UP, config)
             tunnel = handle
             _state.value = TunnelState.CONNECTED
-            return Result.success(Unit)
+            return@withContext Result.success(Unit)
         } catch (e: Exception) {
             _state.value = TunnelState.DISCONNECTED
             lastError = e.message ?: e.javaClass.simpleName
-            return Result.failure(e)
+            return@withContext Result.failure(e)
         }
     }
 
-    suspend fun disconnect(context: Context): Result<Unit> {
+    suspend fun disconnect(context: Context): Result<Unit> = withContext(Dispatchers.IO) {
         userInitiatedDisconnect = true
-        val handle = tunnel ?: return Result.success(Unit).also { _state.value = TunnelState.DISCONNECTED }
-        return try {
+        val handle = tunnel ?: return@withContext Result.success(Unit).also { _state.value = TunnelState.DISCONNECTED }
+        return@withContext try {
             val backend = requireNotNull(NexaApp.appBackend)
             backend.setState(handle, Tunnel.State.DOWN, null)
             tunnel = null
@@ -96,7 +98,7 @@ object VpnManager {
             Result.success(Unit)
         } catch (e: Exception) {
             lastError = e.message
-            Result.failure(e)
+            return@withContext Result.failure(e)
         }
     }
 
