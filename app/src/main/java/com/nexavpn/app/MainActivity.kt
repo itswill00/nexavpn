@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexavpn.app.data.ApiClient
 import com.nexavpn.app.data.VpnServer
+import com.nexavpn.app.ui.SplitTunnelScreen
 import com.nexavpn.app.ui.theme.NexaTheme
 import com.nexavpn.app.vpn.Consent
 import com.nexavpn.app.vpn.TunnelState
@@ -70,6 +73,7 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
     var selected by remember { mutableStateOf<VpnServer?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showSplitTunnel by remember { mutableStateOf(false) }
     val api = remember { ApiClient() }
 
     suspend fun loadServers() {
@@ -81,9 +85,21 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
 
     LaunchedEffect(Unit) { loadServers() }
 
+    if (showSplitTunnel) {
+        SplitTunnelScreen(onBack = { showSplitTunnel = false })
+        return
+    }
+
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(title = { Text("NexaVPN", fontWeight = FontWeight.Bold) })
+            CenterAlignedTopAppBar(
+                title = { Text("NexaVPN", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = { showSplitTunnel = true }) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Split tunneling")
+                    }
+                },
+            )
         },
     ) { padding ->
         Column(

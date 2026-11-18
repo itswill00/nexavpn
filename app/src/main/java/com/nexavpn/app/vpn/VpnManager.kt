@@ -4,12 +4,14 @@ import android.content.Context
 import com.nexavpn.app.NexaApp
 import com.nexavpn.app.data.ApiClient
 import com.nexavpn.app.data.PeerLease
+import com.nexavpn.app.data.SplitTunnelRepository
 import com.nexavpn.app.data.VpnServer
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.config.Config
 import com.wireguard.config.InetNetwork
 import com.wireguard.config.Interface
 import com.wireguard.config.Peer
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.net.InetAddress
@@ -39,7 +41,6 @@ object VpnManager {
         context: Context,
         server: VpnServer,
         api: ApiClient,
-        excludedApps: Set<String> = emptySet(),
     ): Result<Unit> {
         if (_state.value != TunnelState.DISCONNECTED) return Result.success(Unit)
         _state.value = TunnelState.CONNECTING
@@ -52,7 +53,8 @@ object VpnManager {
                 api.registerPeer(server.id, keyPair.publicKey.toBase64()),
             ) { "Provisioning failed — check network and backend availability" }
 
-            val config = buildConfig(keyPair.privateKey.toBase64(), lease, excludedApps)
+            val excluded = SplitTunnelRepository.excludedApps(context).first()
+            val config = buildConfig(keyPair.privateKey.toBase64(), lease, excluded)
             val handle = Handle("nexa-${server.id}")
             backend.setState(handle, Tunnel.State.UP, config)
             tunnel = handle
