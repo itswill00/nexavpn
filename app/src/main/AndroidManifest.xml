@@ -7,6 +7,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- Split tunneling: Android 11+ filters package visibility; launcher-
+         intent apps are visible without QUERY_ALL_PACKAGES, which Play
+         Store restricts. Declare the intent filter instead. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".NexaApp"
         android:allowBackup="false"

@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
@@ -34,7 +35,9 @@ import com.nexavpn.app.vpn.Consent
 import com.nexavpn.app.vpn.KillSwitch
 import com.nexavpn.app.vpn.TunnelState
 import com.nexavpn.app.vpn.VpnManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -83,17 +86,23 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
     var showSplitTunnel by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var latencies by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
+    var isFallbackList by remember { mutableStateOf(false) }
     val api = remember { ApiClient() }
 
     suspend fun loadServers() {
         loading = true
-        servers = api.fetchServers()?.servers ?: defaultServers()
-        if (selected == null) selected = servers.firstOrNull()
+        val remote = withContext(Dispatchers.IO) { api.fetchServers() }
+        isFallbackList = remote == null
+        servers = remote?.servers ?: defaultServers()
+        if (selected == null || servers.none { it.id == selected?.id }) {
+            selected = servers.firstOrNull()
+        }
         loading = false
         latencies = LatencyProber.probeAll(servers)
         // Auto-select fastest reachable server if user hasn't picked one
-        if (selected == null || selected !in servers) {
-            selected = servers.minByOrNull { latencies[it.id] ?: Int.MAX_VALUE }
+        if (servers.none { it.id == selected?.id } || latencies[selected?.id] == null) {
+            val fastest = servers.minByOrNull { latencies[it.id] ?: Int.MAX_VALUE }
+            if (fastest != null) selected = fastest
         }
     }
 
@@ -164,19 +173,31 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
                 },
             )
 
-            error?.let {
+            error?.let { msg ->
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
                     shape = RoundedCornerShape(12.dp),
                 ) {
-                    Text(
-                        it,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(12.dp),
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = 12.dp),
+                    ) {
+                        Text(
+                            msg,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 13.sp,
+                            modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                        )
+                        IconButton(onClick = { error = null }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -185,12 +206,20 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(vertical = 12.dp),
             ) {
-                Text(
-                    "Servers",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Servers",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                    )
+                    if (isFallbackList) {
+                        Text(
+                            "Offline — showing demo servers",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
                 TextButton(onClick = { scope.launch { loadServers() } }) {
                     Text("Refresh")
                 }
@@ -321,8 +350,9 @@ fun ServerRow(server: VpnServer, selected: Boolean, enabled: Boolean, latencyMs:
 }
 
 fun defaultServers(): List<VpnServer> = listOf(
-    VpnServer("sg-1", "Singapore", "SG", "Singapore", "sg1.nexavpn.example.com", "PLACEHOLDER_PUBKEY"),
-    VpnServer("de-1", "Germany", "DE", "Frankfurt", "de1.nexavpn.example.com", "PLACEHOLDER_PUBKEY"),
-    VpnServer("us-1", "United States", "US", "Ashburn", "us1.nexavpn.example.com", "PLACEHOLDER_PUBKEY"),
-    VpnServer("jp-1", "Japan", "JP", "Tokyo", "jp1.nexavpn.example.com", "PLACEHOLDER_PUBKEY"),
+    // Placeholder list shown only when the backend is unreachable.
+    VpnServer("fallback-sg", "Singapore (demo)", "SG", "Singapore", "fallback.invalid", "PLACEHOLDER_PUBKEY"),
+    VpnServer("fallback-de", "Germany (demo)", "DE", "Frankfurt", "fallback.invalid", "PLACEHOLDER_PUBKEY"),
+    VpnServer("fallback-us", "United States (demo)", "US", "Ashburn", "fallback.invalid", "PLACEHOLDER_PUBKEY"),
+    VpnServer("fallback-jp", "Japan (demo)", "JP", "Tokyo", "fallback.invalid", "PLACEHOLDER_PUBKEY"),
 )

@@ -15,8 +15,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexavpn.app.data.SplitTunnelRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Split tunneling screen: pick apps to EXCLUDE from the VPN.
@@ -33,7 +35,8 @@ fun SplitTunnelScreen(onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        apps = repo.listInstalledApps(context)
+        // PackageManager queries are blocking — run off the main thread.
+        apps = withContext(Dispatchers.IO) { repo.listInstalledApps(context) }
         excluded = repo.excludedApps(context).first()
     }
 

@@ -35,7 +35,12 @@ object KillSwitch {
     var breached: Boolean = false
         private set
 
+    @Volatile
+    private var observed: Boolean = false
+
     fun observe(context: Context) {
+        if (observed) return
+        observed = true
         scope.launch {
             VpnManager.state.collect { state ->
                 when (state) {
