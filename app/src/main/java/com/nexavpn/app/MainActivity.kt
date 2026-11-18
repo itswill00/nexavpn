@@ -27,7 +27,6 @@ import com.nexavpn.app.data.AppSettings
 import com.nexavpn.app.data.LatencyProber
 import com.nexavpn.app.data.SettingsRepository
 import com.nexavpn.app.data.VpnServer
-import com.nexavpn.app.data.SettingsRepository
 import com.nexavpn.app.ui.SettingsScreen
 import com.nexavpn.app.ui.SplitTunnelScreen
 import com.nexavpn.app.ui.theme.NexaTheme

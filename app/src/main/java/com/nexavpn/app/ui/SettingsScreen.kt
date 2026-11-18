@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nexavpn.app.data.AppSettings
 import com.nexavpn.app.data.SettingsRepository
 import com.nexavpn.app.vpn.KillSwitch
 import kotlinx.coroutines.launch
@@ -70,7 +71,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenSplitTunnel: () -> Unit) {
                         Text("Open Android's VPN settings to enable always-on + \"block connections without VPN\" for the strongest kill switch")
                     },
                     modifier = Modifier.clickableRow(onClick = {
-                        context.startActivity(Intent(VpnService.ACTION_VPN_SETTINGS))
+                        context.startActivity(Intent("android.net.vpn.SETTINGS"))
                     }),
                 )
             }

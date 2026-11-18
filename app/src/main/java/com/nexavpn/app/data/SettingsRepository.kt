@@ -29,10 +29,10 @@ object SettingsRepository {
         }
 
     suspend fun setKillSwitch(context: Context, enabled: Boolean) {
-        context.settingsStore.data.edit { it[KILL_SWITCH] = enabled }
+        context.settingsStore.edit { it[KILL_SWITCH] = enabled }
     }
 
     suspend fun setAutoConnect(context: Context, enabled: Boolean) {
-        context.settingsStore.data.edit { it[AUTO_CONNECT] = enabled }
+        context.settingsStore.edit { it[AUTO_CONNECT] = enabled }
     }
 }

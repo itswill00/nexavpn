@@ -9,7 +9,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-
 private val Context.splitTunnelStore by preferencesDataStore(name = "nexa_split_tunnel")
 
 /**
@@ -25,7 +24,7 @@ object SplitTunnelRepository {
         context.splitTunnelStore.data.map { it[EXCLUDED] ?: emptySet() }
 
     suspend fun setExcluded(context: Context, packages: Set<String>) {
-        context.splitTunnelStore.data.edit { it[EXCLUDED] = packages }
+        context.splitTunnelStore.edit { it[EXCLUDED] = packages }
     }
 
     suspend fun toggle(context: Context, packageName: String) {

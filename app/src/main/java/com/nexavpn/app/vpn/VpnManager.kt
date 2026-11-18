@@ -79,11 +79,11 @@ object VpnManager {
             backend.setState(handle, Tunnel.State.UP, config)
             tunnel = handle
             _state.value = TunnelState.CONNECTED
-            Result.success(Unit)
+            return Result.success(Unit)
         } catch (e: Exception) {
             _state.value = TunnelState.DISCONNECTED
             lastError = e.message ?: e.javaClass.simpleName
-            Result.failure(e)
+            return Result.failure(e)
         }
     }
 
@@ -108,7 +108,7 @@ object VpnManager {
             .addAddress(InetNetwork.parse(lease.address))
             .addDnsServers(lease.dns.map { InetAddress.getByName(it) })
             .apply {
-                excludedApps.forEach { addExcludedApplication(it) }
+                excludedApps.forEach { excludeApplication(it) }
             }
             .build()
 
@@ -116,7 +116,7 @@ object VpnManager {
             .parsePublicKey(lease.serverPublicKey)
             .addAllowedIp(InetNetwork.parse("0.0.0.0/0"))
             .parseEndpoint(lease.endpoint)
-            .persistentKeepalive(25)
+            .setPersistentKeepalive(25)
             .build()
 
         return Config.Builder()

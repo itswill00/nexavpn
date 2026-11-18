@@ -35,8 +35,9 @@ object LatencyProber {
 
     /** Probes all servers concurrently; returns map id -> ms (null = unreachable). */
     suspend fun probeAll(servers: List<VpnServer>): Map<String, Int?> = coroutineScope {
-        servers.associate { s ->
+        val deferreds = servers.map { s ->
             async { s.id to probe(s.hostname, s.endpointPort) }
-        }.associate { it.await() }
+        }
+        deferreds.associate { deferred -> deferred.await() }
     }
 }

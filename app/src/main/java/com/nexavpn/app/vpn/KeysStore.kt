@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferences_key
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wireguard.crypto.KeyPair
 import kotlinx.coroutines.flow.first
@@ -18,21 +18,22 @@ private val Context.keyStore by preferencesDataStore(name = "nexa_keys")
  */
 object KeysStore {
 
-    private val PRIVATE_KEY = stringPreferences_key("wg_private_key")
+    private val PRIVATE_KEY = stringPreferencesKey("wg_private_key")
 
     suspend fun getOrCreatePrivateKey(context: Context): String {
         val existing = context.keyStore.data
             .map { prefs -> prefs[PRIVATE_KEY] }
             .first()
-        if (existing != null) return existing
-
-        val fresh = KeyPair().privateKey.toBase64()
-        context.keyStore.data.edit { it[PRIVATE_KEY] = fresh }
-        return fresh
+        val privateKeyB64 = existing ?: run {
+            val fresh = com.wireguard.crypto.KeyPair().privateKey.toBase64()
+            context.keyStore.edit { it[PRIVATE_KEY] = fresh }
+            fresh
+        }
+        return privateKeyB64
     }
 
     suspend fun getOrCreateKeyPair(context: Context): KeyPair {
-        return KeyPair(getOrCreatePrivateKey(context))
+        return KeyPair(com.wireguard.crypto.Key.fromBase64(getOrCreatePrivateKey(context)))
     }
 
     suspend fun publicKey(context: Context): String {

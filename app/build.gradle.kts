@@ -58,8 +58,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    // WireGuard engine (official library, same engine family the original app embeds via wireguard-go)
-    implementation("com.wireguard.android:tunnel:1.1.1")
+    // WireGuard engine (official library, wireguard-go under the hood)
+    implementation("com.wireguard.android:tunnel:1.0.20250531")
 
     // Crypto for peer key generation
     implementation("org.minidns:minidns-hla:1.0.4")

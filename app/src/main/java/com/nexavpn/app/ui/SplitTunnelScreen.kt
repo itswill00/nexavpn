@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexavpn.app.data.SplitTunnelRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
