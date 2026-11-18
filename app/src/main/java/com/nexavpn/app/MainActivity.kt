@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,10 +23,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexavpn.app.data.ApiClient
+import com.nexavpn.app.data.AppSettings
+import com.nexavpn.app.data.SettingsRepository
 import com.nexavpn.app.data.VpnServer
+import com.nexavpn.app.data.SettingsRepository
+import com.nexavpn.app.ui.SettingsScreen
 import com.nexavpn.app.ui.SplitTunnelScreen
 import com.nexavpn.app.ui.theme.NexaTheme
 import com.nexavpn.app.vpn.Consent
+import com.nexavpn.app.vpn.KillSwitch
 import com.nexavpn.app.vpn.TunnelState
 import com.nexavpn.app.vpn.VpnManager
 import kotlinx.coroutines.launch
@@ -44,6 +50,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        KillSwitch.observe(this)
         setContent {
             NexaTheme {
                 DashboardScreen(onRequestConsent = ::requestVpnConsent)
@@ -74,6 +81,7 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var showSplitTunnel by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     val api = remember { ApiClient() }
 
     suspend fun loadServers() {
@@ -85,9 +93,18 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
 
     LaunchedEffect(Unit) { loadServers() }
 
-    if (showSplitTunnel) {
-        SplitTunnelScreen(onBack = { showSplitTunnel = false })
-        return
+    when {
+        showSettings -> {
+            SettingsScreen(
+                onBack = { showSettings = false },
+                onOpenSplitTunnel = { showSplitTunnel = true },
+            )
+            return
+        }
+        showSplitTunnel -> {
+            SplitTunnelScreen(onBack = { showSplitTunnel = false })
+            return
+        }
     }
 
     Scaffold(
@@ -96,7 +113,10 @@ fun DashboardScreen(onRequestConsent: (onResult: (Boolean) -> Unit) -> Unit) {
                 title = { Text("NexaVPN", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { showSplitTunnel = true }) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Split tunneling")
+                        Icon(Icons.Outlined.CompareArrows, contentDescription = "Split tunneling")
+                    }
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Settings")
                     }
                 },
             )

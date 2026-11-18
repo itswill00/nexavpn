@@ -30,7 +30,24 @@ object VpnManager {
     private var tunnel: Handle? = null
     private var lastError: String? = null
 
+    @Volatile
+    private var userInitiatedDisconnect: Boolean = false
+    private var lastContext: android.content.Context? = null
+    private var lastServer: VpnServer? = null
+    private var lastApi: ApiClient? = null
+
     fun error(): String? = lastError
+
+    /** True when the tunnel dropped without a user disconnect request. */
+    fun wasUnexpectedDrop(): Boolean = !userInitiatedDisconnect
+
+    /** Attempts an automatic reconnect using the last successful parameters. */
+    suspend fun reconnect(context: Context) {
+        val server = lastServer ?: return
+        val api = lastApi ?: return
+        userInitiatedDisconnect = false
+        connect(context, server, api)
+    }
 
     /**
      * Full connect flow: provision a peer lease on the backend, build a
@@ -45,6 +62,9 @@ object VpnManager {
         if (_state.value != TunnelState.DISCONNECTED) return Result.success(Unit)
         _state.value = TunnelState.CONNECTING
         lastError = null
+        lastContext = context
+        lastServer = server
+        lastApi = api
 
         try {
             val backend = requireNotNull(NexaApp.appBackend) { "backend not initialized" }
@@ -68,6 +88,7 @@ object VpnManager {
     }
 
     suspend fun disconnect(context: Context): Result<Unit> {
+        userInitiatedDisconnect = true
         val handle = tunnel ?: return Result.success(Unit).also { _state.value = TunnelState.DISCONNECTED }
         return try {
             val backend = requireNotNull(NexaApp.appBackend)
@@ -112,5 +133,10 @@ object VpnManager {
                 _state.value = TunnelState.DISCONNECTED
             }
         }
+    }
+
+    /** Holds a breach state until user reconnects manually. */
+    fun acknowledgeBreach() {
+        userInitiatedDisconnect = true
     }
 }
