@@ -1,31 +1,37 @@
 """
-NexaVPN backend — minimal FastAPI service.
+NexaVPN backend — FastAPI service.
 
 Endpoints:
-  GET  /servers         list available VPN servers
-  POST /peers           register a device public key on a server, returns wg config
+  GET    /health                  liveness
+  GET    /servers                 list available VPN servers
+  POST   /peers                   register a device public key -> peer lease
+  DELETE /peers/{public_key}      revoke a peer
 
-Persistence: SQLite. WireGuard server control is done via SSH/WG API in
-server/provision.py (see server/README.md). This keeps the API stateless
-regarding crypto: the client generates its own keypair and only sends the
-PUBLIC key.
+Security model:
+  - The backend NEVER receives or stores private keys. Clients generate
+    keypairs locally and submit only the public key.
+  - POST /peers requires a bearer token (NEXA_API_TOKEN env) once set;
+    leave the env unset only for local development.
 """
 from __future__ import annotations
 
+import hmac
 import os
 import sqlite3
 import time
 import uuid
-import secrets
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 DB_PATH = os.environ.get("NEXA_DB", "/var/lib/nexavpn/backend.db")
 BASE_SUBNET = os.environ.get("NEXA_SUBNET", "10.66.66")
+API_TOKEN = os.environ.get("NEXA_API_TOKEN")  # unset -> auth disabled (dev mode)
+LEASE_DAYS = int(os.environ.get("NEXA_LEASE_DAYS", "30"))
+DNS_SERVERS = [s.strip() for s in os.environ.get("NEXA_DNS", "1.1.1.1,1.0.0.1").split(",")]
 
-app = FastAPI(title="NexaVPN API", version="0.1.0")
+app = FastAPI(title="NexaVPN API", version="0.2.0")
 
 
 def db() -> sqlite3.Connection:
@@ -52,11 +58,23 @@ def init_db() -> None:
                 server_id TEXT REFERENCES servers(id),
                 public_key TEXT UNIQUE,
                 address TEXT,
+                device_hash TEXT,
                 created_at INTEGER,
                 expires_at INTEGER
             );
             """
         )
+
+
+def require_token(authorization: Optional[str] = Header(default=None)) -> None:
+    """Bearer-token gate; disabled when NEXA_API_TOKEN is unset (dev)."""
+    if API_TOKEN is None:
+        return
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "missing bearer token")
+    supplied = authorization.removeprefix("Bearer ").strip()
+    if not hmac.compare_digest(supplied, API_TOKEN):
+        raise HTTPException(403, "invalid token")
 
 
 @app.on_event("startup")
@@ -67,10 +85,14 @@ def _startup() -> None:
 class PeerRequest(BaseModel):
     server_id: str
     public_key: str = Field(min_length=44, max_length=44)  # base64 wg pubkey
+    device_hash: Optional[str] = None  # opaque client identifier (optional)
 
 
-class PeerResponse(BaseModel):
-    config: str
+class PeerLease(BaseModel):
+    address: str
+    server_public_key: str
+    endpoint: str
+    dns: list[str] = DNS_SERVERS
     expires_at: int
 
 
@@ -92,8 +114,11 @@ def list_servers() -> dict:
     }
 
 
-@app.post("/peers", response_model=PeerResponse)
-def register_peer(req: PeerRequest) -> PeerResponse:
+@app.post("/peers", response_model=PeerLease)
+def register_peer(
+    req: PeerRequest,
+    _token: None = Depends(require_token),
+) -> PeerLease:
     with db() as conn:
         server = conn.execute(
             "SELECT * FROM servers WHERE id = ?", (req.server_id,)
@@ -101,46 +126,47 @@ def register_peer(req: PeerRequest) -> PeerResponse:
         if server is None:
             raise HTTPException(404, "unknown server")
 
+        now = int(time.time())
         existing = conn.execute(
             "SELECT * FROM peers WHERE public_key = ?", (req.public_key,)
         ).fetchone()
-        if existing:
+
+        if existing and existing["expires_at"] > now:
             address = existing["address"]
+            expires = existing["expires_at"]
         else:
             n = server["next_ip"]
             if n > 250:
                 raise HTTPException(507, "server full")
             address = f"{BASE_SUBNET}.{n}"
+            expires = now + LEASE_DAYS * 86400
             conn.execute(
                 "UPDATE servers SET next_ip = next_ip + 1 WHERE id = ?",
                 (req.server_id,),
             )
 
         peer_id = uuid.uuid4().hex
-        now = int(time.time())
-        expires = now + 30 * 24 * 3600
         conn.execute(
             "INSERT OR REPLACE INTO peers(id, server_id, public_key, address,"
-            " created_at, expires_at) VALUES (?,?,?,?,?,?)",
-            (peer_id, req.server_id, req.public_key, address, now, expires),
+            " device_hash, created_at, expires_at) VALUES (?,?,?,?,?,?,?)",
+            (peer_id, req.server_id, req.public_key, address,
+             req.device_hash, now, expires),
         )
 
-    client_cfg = f"""[Interface]
-PrivateKey = <CLIENT_KEEP_PRIVATE_NEVER_SEND>
-Address = {address}/32
-DNS = 1.1.1.1
-
-[Peer]
-PublicKey = {server['public_key']}
-Endpoint = {server['hostname']}:{server['endpoint_port']}
-AllowedIPs = 0.0.0.0/0
-PersistentKeepalive = 25
-"""
-    return PeerResponse(config=client_cfg, expires_at=expires)
+    return PeerLease(
+        address=f"{address}/32",
+        server_public_key=server["public_key"],
+        endpoint=f"{server['hostname']}:{server['endpoint_port']}",
+        dns=DNS_SERVERS,
+        expires_at=expires,
+    )
 
 
 @app.delete("/peers/{public_key}")
-def revoke_peer(public_key: str) -> dict:
+def revoke_peer(
+    public_key: str,
+    _token: None = Depends(require_token),
+) -> dict:
     with db() as conn:
         cur = conn.execute("DELETE FROM peers WHERE public_key = ?", (public_key,))
     return {"deleted": cur.rowcount}

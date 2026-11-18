@@ -78,8 +78,8 @@ original.
 | File | Purpose |
 |---|---|
 | `app/src/main/java/com/nexavpn/app/MainActivity.kt` | Compose dashboard: connect button, server list |
-| `app/src/main/java/com/nexavpn/app/vpn/TunnelService.kt` | VpnService wrapping GoBackend |
-| `app/src/main/java/com/nexavpn/app/vpn/VpnController.kt` | Key generation, start/stop bridge |
+| `app/src/main/java/com/nexavpn/app/vpn/VpnManager.kt` | Tunnel lifecycle, state flow, config building |
+| `app/src/main/java/com/nexavpn/app/vpn/KeysStore.kt` | On-device keypair persistence (DataStore) |
 | `app/src/main/java/com/nexavpn/app/data/ApiClient.kt` | HTTP client; **edit `DEFAULT_BASE_URL` for deployment** |
 | `backend/main.py` | All API endpoints + schema |
 | `server/setup-wg-server.sh` | Idempotent VPS bootstrap |

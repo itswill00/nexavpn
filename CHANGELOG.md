@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Client**: replaced custom `TunnelService` with the library-managed
+  `GoBackend` + dedicated state owner `VpnManager` (StateFlow-driven UI)
+- **Client**: added `VpnService.prepare` consent flow via ActivityResult API
+- **Client**: device keypair now persisted in DataStore (`KeysStore`)
+- **Backend**: `POST /peers` now returns a structured peer lease
+  (address, server key, endpoint, DNS) instead of a raw config with a
+  placeholder private key
+- **Backend**: bearer-token auth (`NEXA_API_TOKEN`) on provisioning
+  endpoints; disabled only when unset (local dev)
+
+### Added
+
+- Adaptive launcher icon (vector, monochrome-aware)
+- Connect flow wired end-to-end: consent → provisioning → tunnel UP
+
 ## [0.1.0] - 2026-11-19
 
 ### Added

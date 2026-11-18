@@ -1,14 +1,19 @@
 package com.nexavpn.app
 
 import android.app.Application
-import com.wireguard.android.backend.Tunnel
+import com.wireguard.android.backend.GoBackend
 
-class NexaApp : Application(), Tunnel.StateChangeCallback {
+class NexaApp : Application() {
+
     override fun onCreate() {
         super.onCreate()
+        // GoBackend starts its own VpnService when a tunnel is brought up.
+        appBackend = GoBackend(this)
     }
 
-    override fun onStateChanged(state: Tunnel.State) {
-        // Surface state changes to the UI layer via shared flow in a follow-up iteration.
+    companion object {
+        @Volatile
+        var appBackend: GoBackend? = null
+            private set
     }
 }

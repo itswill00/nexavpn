@@ -7,10 +7,13 @@ import okhttp3.Request
 import java.time.Duration
 
 /**
- * API client for the NexaVPN backend (see /backend).
- * Falls back to bundled defaults when the backend is unreachable.
+ * API client for the NexaVPN backend. All calls are synchronous and should
+ * be invoked from a coroutine dispatcher (see VpnManager).
  */
-class ApiClient(private val baseUrl: String = DEFAULT_BASE_URL) {
+class ApiClient(
+    private val baseUrl: String = DEFAULT_BASE_URL,
+    private val deviceToken: String? = null,
+) {
 
     private val client = OkHttpClient.Builder()
         .callTimeout(Duration.ofSeconds(15))
@@ -19,39 +22,36 @@ class ApiClient(private val baseUrl: String = DEFAULT_BASE_URL) {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun fetchServers(): ServerListResponse? = runCatching {
-        val req = Request.Builder().url("$baseUrl/servers").build()
+        val req = builder("$baseUrl/servers").build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return null
-            val body = resp.body?.string() ?: return null
-            json.decodeFromString<ServerListResponse>(body)
+            json.decodeFromString<ServerListResponse>(resp.body?.string() ?: return null)
         }
     }.getOrNull()
 
-    /** Ask backend to register this device's public key on a server and get a wg config. */
-    fun registerPeer(serverId: String, publicKey: String): PeerRegistration? = runCatching {
+    /** Registers the device public key on a server; returns a peer lease. */
+    fun registerPeer(serverId: String, publicKey: String): PeerLease? = runCatching {
         val payload = json.encodeToString(
             kotlinx.serialization.serializer<Map<String, String>>(),
             mapOf("server_id" to serverId, "public_key" to publicKey),
         )
-        val req = Request.Builder()
-            .url("$baseUrl/peers")
+        val req = builder("$baseUrl/peers")
             .post(okhttp3.RequestBody.create("application/json".toMediaType(), payload))
             .build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return null
-            val body = resp.body?.string() ?: return null
-            json.decodeFromString<PeerRegistration>(body)
+            json.decodeFromString<PeerLease>(resp.body?.string() ?: return null)
         }
     }.getOrNull()
 
+    private fun builder(url: String): Request.Builder {
+        val b = Request.Builder().url(url)
+        deviceToken?.let { b.header("Authorization", "Bearer $it") }
+        return b
+    }
+
     companion object {
-        // Change to your deployed backend URL
+        // Point at your deployed backend before building a release.
         const val DEFAULT_BASE_URL = "https://api.nexavpn.example.com"
     }
 }
-
-@Serializable
-data class PeerRegistration(
-    val config: String,
-    val expiresAt: Long = 0,
-)

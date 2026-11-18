@@ -1,16 +1,41 @@
 # NexaVPN
 
-Clean-room VPN client + backend inspired by the architecture observed in a
-commercial VPN app (WireGuard core, server-list API, one-tap dashboard).
-No code, assets, keys or branding were copied from the original app.
+Clean-room, full-stack VPN reference implementation: an Android client built
+on the official WireGuard library, a FastAPI provisioning backend, and a VPS
+bootstrap script. All code is original.
 
-## Layout
+> **Status:** active development — see the
+> [roadmap](#roadmap) and [CHANGELOG](CHANGELOG.md).
+
+## Architecture
 
 ```
-app/       Android client (Kotlin + Jetpack Compose, wireguard-android library)
-backend/   FastAPI service: server list + peer provisioning (SQLite)
-server/    WireGuard VPS bootstrap script
+┌────────────────┐   GET /servers   ┌──────────────┐   SQL    ┌─────────┐
+│ Android client │ ───────────────▶ │ FastAPI      │ ───────▶ │ SQLite  │
+│ (Compose UI)   │  POST /peers     │ backend/     │          └─────────┘
+│                │ ◀─────────────── │              │
+│ GoBackend      │   peer lease     └──────┬───────┘
+│ (wireguard-    │                         │ operator / future agent
+│  android lib)  │                         ▼
+└───────┬────────┘            ┌──────────────────────┐
+        │ UDP 51820           │ WireGuard VPS        │
+        └────────────────────▶│ server/setup-wg-…    │
+                              └──────────────────────┘
 ```
+
+**Security model:** the client generates its Curve25519 keypair on-device
+(persisted via DataStore). Only the **public key** is sent to the backend
+during provisioning; the backend returns a peer lease (address, server
+public key, endpoint, DNS) from which the client builds its WireGuard config
+locally.
+
+## Components
+
+| Component | Path | Docs | Stack |
+|---|---|---|---|
+| Android client | [`app/`](app/) | [app/README.md](app/README.md) | Kotlin, Jetpack Compose, wireguard-android |
+| REST API | [`backend/`](backend/) | [backend/README.md](backend/README.md) | Python, FastAPI, SQLite |
+| VPS provisioning | [`server/`](server/) | [server/README.md](server/) | Bash, WireGuard, iptables |
 
 ## Quick start
 
@@ -21,39 +46,55 @@ ssh root@your-vps 'bash -s' < server/setup-wg-server.sh
 # note the printed public key
 ```
 
-### 2. Register the server in the backend
-
-```sql
-INSERT INTO servers(id, country, country_code, city, hostname,
-                    public_key, endpoint_port, premium)
-VALUES ('vps-1','Germany','DE','Frankfurt',
-        'your-vps.example.com','<PUBKEY>',51820,0);
-```
-
-### 3. Run the backend
+### 2. Run the backend
 
 ```bash
 cd backend
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+export NEXA_API_TOKEN="$(openssl rand -hex 32)"   # enables bearer auth
+export NEXA_DB=./backend.db
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### 4. Build the app
+Register your VPS in the `servers` table (see
+[backend/README.md](backend/README.md)).
 
-Open the project in Android Studio (or `./gradlew :app:assembleDebug`) and
-point `ApiClient.DEFAULT_BASE_URL` at your backend.
+### 3. Build the client
 
-## Security notes
+Open the project in Android Studio, or:
 
-- Private keys are generated **on-device** (`KeyPair()` from wireguard-android's
-  crypto) and never leave the device; only the public key is sent to the
-  backend for provisioning.
-- The sample `PeerResponse.config` contains a placeholder — the client must
-  substitute its own private key locally. Harden this before any real use.
-- Add authentication (device attestation / tokens) to /peers before exposing
-  it publicly, otherwise anyone can allocate peer slots.
+```bash
+./gradlew :app:assembleDebug
+```
 
-## Status
+Point `ApiClient.DEFAULT_BASE_URL` at your backend, and pass the same token
+via `ApiClient(deviceToken = …)` for provisioning.
 
-Scaffold / MVP. Not production-ready: see TODOs in
-`TunnelService.kt` and `MainActivity.kt`.
+## Roadmap
+
+- [x] Project scaffold, CI-ready docs, initial commit
+- [x] Real connect flow: VPN consent → peer provisioning → tunnel UP
+- [x] Persistent device keypair (DataStore)
+- [x] Backend bearer-token auth on provisioning endpoints
+- [ ] Split tunneling (per-app include/exclude) UI
+- [ ] Kill switch (block traffic when tunnel drops)
+- [ ] Auto-select fastest server (latency probing)
+- [ ] Favorites / recent servers
+- [ ] Android CI (GitHub Actions: assemble + lint)
+- [ ] Release pipeline: signing, R8, Play Store listing assets
+- [ ] Play Store: privacy policy, Data Safety form, internal testing track
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). Agent-based contributions should
+read [`AGENTS.md`](AGENTS.md) first.
+
+## Security
+
+See [`SECURITY.md`](SECURITY.md) for disclosure policy and the current list
+of intentional pre-production gaps.
+
+## License
+
+[MIT](LICENSE)
