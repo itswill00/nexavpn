@@ -69,9 +69,7 @@ object VpnManager {
         try {
             val backend = requireNotNull(NexaApp.appBackend) { "backend not initialized" }
             val keyPair = KeysStore.getOrCreateKeyPair(context)
-            val lease = requireNotNull(
-                api.registerPeer(server.id, keyPair.publicKey.toBase64()),
-            ) { "Provisioning failed — check network and backend availability" }
+            val lease = api.registerPeer(server.id, keyPair.publicKey.toBase64())
 
             val excluded = SplitTunnelRepository.excludedApps(context).first()
             val config = buildConfig(keyPair.privateKey.toBase64(), lease, excluded)
